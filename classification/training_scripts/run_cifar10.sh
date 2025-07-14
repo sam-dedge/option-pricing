@@ -1,5 +1,5 @@
 export EXP_DIR=./results
-export N_STEPS=1000
+export N_STEPS=50
 export RUN_NAME=run_1
 export PRIOR_TYPE=f_phi_prior
 export CAT_F_PHI=_cat_f_phi

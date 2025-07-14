@@ -26,12 +26,13 @@ diffusion:
     beta_schedule: linear  # cosine_anneal, cosine
     beta_start: 0.0001
     beta_end: 0.02
-    timesteps: 1000
+    timesteps: 100
     vis_step: 100
     num_figs: 10
     include_guidance: True  # concat y_t with aux pred as eps_theta input
     apply_aux_cls: True
-    trained_aux_cls_ckpt_path: "/data/classification/pretrained/cifar10_ckpt"
+    trained_aux_cls_ckpt_path: "./data/classification/pretrained/cifar10_ckpt"
+    #trained_aux_cls_ckpt_name: "ckpt.pth" 
     trained_aux_cls_ckpt_name: "snapshot_supervised.ckpt"  # test accuracy 90.39%, applied in the paper
 #    trained_aux_cls_ckpt_name: "snapshot_self_supervised.ckpt"  # test accuracy 94.31%
     aux_cls:
@@ -43,14 +44,14 @@ diffusion:
     
 training:
     batch_size: 256
-    n_epochs: 1000
+    n_epochs: 50
     warmup_epochs: 40
     add_t0_loss: False
     n_steps_req_grad: 100
     n_minibatches_add_ce: 20
     n_ce_epochs_warmup: 10
     n_ce_epochs_interval: 50
-    n_sanity_check_epochs_freq: 500
+    n_sanity_check_epochs_freq: 20
     snapshot_freq: 1000000000
     logging_freq: 1200
     validation_freq: 10
@@ -58,13 +59,13 @@ training:
 
 sampling:
     batch_size: 256
-    sampling_size: 1000
+    sampling_size: 200
     last_only: True
     image_folder: 'sampling_image_samples'
 
 testing:
     batch_size: 250
-    sampling_size: 1000
+    sampling_size: 200
     last_only: True
     plot_freq: 200
     image_folder: 'testing_image_samples'

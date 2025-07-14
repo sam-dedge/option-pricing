@@ -17,6 +17,7 @@ from pretraining.encoder import Model as AuxCls
 from pretraining.resnet import ResNet18
 from utils import *
 from diffusion_utils import *
+from pathlib import Path
 
 plt.style.use('ggplot')
 
@@ -200,13 +201,13 @@ class Diffusion(object):
 
         if config.diffusion.apply_aux_cls:
             if hasattr(config.diffusion, "trained_aux_cls_ckpt_path"):  # load saved auxiliary classifier
-                aux_states = torch.load(os.path.join(config.diffusion.trained_aux_cls_ckpt_path,
-                                                     config.diffusion.trained_aux_cls_ckpt_name),
+                aux_states = torch.load(Path(os.path.join(config.diffusion.trained_aux_cls_ckpt_path,
+                                                     config.diffusion.trained_aux_cls_ckpt_name)),
                                         map_location=self.device)
                 self.cond_pred_model.load_state_dict(aux_states['state_dict'], strict=True)
                 self.cond_pred_model.eval()
             elif hasattr(config.diffusion, "trained_aux_cls_log_path"):
-                aux_states = torch.load(os.path.join(config.diffusion.trained_aux_cls_log_path, "aux_ckpt.pth"),
+                aux_states = torch.load(Path(os.path.join(config.diffusion.trained_aux_cls_log_path, "aux_ckpt.pth")),
                                         map_location=self.device)
                 self.cond_pred_model.load_state_dict(aux_states[0], strict=True)
                 self.cond_pred_model.eval()
@@ -237,7 +238,7 @@ class Diffusion(object):
                     self.cond_pred_model.state_dict(),
                     aux_optimizer.state_dict(),
                 ]
-                torch.save(aux_states, os.path.join(self.args.log_path, "aux_ckpt.pth"))
+                torch.save(aux_states, Path(os.path.join(self.args.log_path, "aux_ckpt.pth")))
             # report accuracy on both training and test set for the pre-trained auxiliary classifier
             y_acc_aux_model = self.evaluate_guidance_model(train_loader)
             logging.info("\nAfter pre-training, guidance classifier accuracy on the training set is {:.8f}.".format(
@@ -249,7 +250,7 @@ class Diffusion(object):
         if not self.args.train_guidance_only:
             start_epoch, step = 0, 0
             if self.args.resume_training:
-                states = torch.load(os.path.join(self.args.log_path, "ckpt.pth"),
+                states = torch.load(Path(os.path.join(self.args.log_path, "ckpt.pth")),
                                     map_location=self.device)
                 model.load_state_dict(states[0])
 
@@ -263,7 +264,7 @@ class Diffusion(object):
                 if config.diffusion.apply_aux_cls and (
                         hasattr(config.diffusion, "trained_aux_cls_ckpt_path") is False) and (
                         hasattr(config.diffusion, "trained_aux_cls_log_path") is False):
-                    aux_states = torch.load(os.path.join(self.args.log_path, "aux_ckpt.pth"),
+                    aux_states = torch.load(Path(os.path.join(self.args.log_path, "aux_ckpt.pth")),
                                             map_location=self.device)
                     self.cond_pred_model.load_state_dict(aux_states[0])
                     aux_optimizer.load_state_dict(aux_states[1])
@@ -374,10 +375,10 @@ class Diffusion(object):
                         if step > 1:  # skip saving the initial ckpt
                             torch.save(
                                 states,
-                                os.path.join(self.args.log_path, "ckpt_{}.pth".format(step)),
+                                Path(os.path.join(self.args.log_path, "ckpt_{}.pth".format(step))),
                             )
                         # save current states
-                        torch.save(states, os.path.join(self.args.log_path, "ckpt.pth"))
+                        torch.save(states, Path(os.path.join(self.args.log_path, "ckpt.pth")))
 
                         # save auxiliary model
                         if config.diffusion.apply_aux_cls and config.diffusion.aux_cls.joint_train:
@@ -388,9 +389,9 @@ class Diffusion(object):
                             if step > 1:  # skip saving the initial ckpt
                                 torch.save(
                                     aux_states,
-                                    os.path.join(self.args.log_path, "aux_ckpt_{}.pth".format(step)),
+                                    Path(os.path.join(self.args.log_path, "aux_ckpt_{}.pth".format(step))),
                                 )
-                            torch.save(aux_states, os.path.join(self.args.log_path, "aux_ckpt.pth"))
+                            torch.save(aux_states, Path(os.path.join(self.args.log_path, "aux_ckpt.pth")))
 
                     data_start = time.time()
 
@@ -452,7 +453,7 @@ class Diffusion(object):
                                 tb_logger.add_figure('samples', fig, step)
                                 tb_logger.add_scalar('accuracy', acc_avg.item(), global_step=step)
                             fig.savefig(
-                                os.path.join(args.im_path, 'samples_T{}_{}.pdf'.format(self.num_timesteps, step)))
+                                Path(os.path.join(args.im_path, 'samples_T{}_{}.pdf'.format(self.num_timesteps, step))))
                             plt.close()
                     else:
                         model.eval()
@@ -483,7 +484,7 @@ class Diffusion(object):
                         acc_avg /= (test_batch_idx + 1)
                         if acc_avg > max_accuracy:
                             logging.info("Update best accuracy at Epoch {}.".format(epoch))
-                            torch.save(states, os.path.join(self.args.log_path, "ckpt_best.pth"))
+                            torch.save(states, Path(os.path.join(self.args.log_path, "ckpt_best.pth")))
                         max_accuracy = max(max_accuracy, acc_avg)
                         if not tb_logger is None:
                             tb_logger.add_scalar('accuracy', acc_avg, global_step=step)
@@ -504,14 +505,14 @@ class Diffusion(object):
             ]
             if self.config.model.ema:
                 states.append(ema_helper.state_dict())
-            torch.save(states, os.path.join(self.args.log_path, "ckpt.pth"))
+            torch.save(states, Path(os.path.join(self.args.log_path, "ckpt.pth")))
             # save auxiliary model after training is finished
             if config.diffusion.apply_aux_cls and config.diffusion.aux_cls.joint_train:
                 aux_states = [
                     self.cond_pred_model.state_dict(),
                     aux_optimizer.state_dict(),
                 ]
-                torch.save(aux_states, os.path.join(self.args.log_path, "aux_ckpt.pth"))
+                torch.save(aux_states, Path(os.path.join(self.args.log_path, "aux_ckpt.pth")))
                 # report training set accuracy if applied joint training
                 y_acc_aux_model = self.evaluate_guidance_model(train_loader)
                 logging.info("After joint-training, guidance classifier accuracy on the training set is {:.8f}.".format(
@@ -587,8 +588,8 @@ class Diffusion(object):
                 for instance_idx in range(24):
                     fig = sm.qqplot(gen_y_2_class_prob_diff[instance_idx, :],
                                     fit=True, line='45')
-                    fig.savefig(os.path.join(args.im_path,
-                                             f'qq_plot_instance_{instance_idx}.png'))
+                    fig.savefig(Path(os.path.join(args.im_path,
+                                             f'qq_plot_instance_{instance_idx}.png')))
                     plt.close()
                 plt.style.use('ggplot')
             ttest_pvalues = (ttest_rel(gen_y_2_class_probs[:, :, 0],
@@ -828,7 +829,7 @@ class Diffusion(object):
         args = self.args
         config = self.config
         split = args.split
-        log_path = os.path.join(self.args.log_path)
+        log_path = Path(os.path.join(self.args.log_path))
         dataset_object, train_dataset, test_dataset = get_dataset(args, config)
         # use test batch size for training set during inference
         train_loader = data.DataLoader(
@@ -848,14 +849,14 @@ class Diffusion(object):
         if getattr(self.config.testing, "ckpt_id", None) is None:
             if args.eval_best:
                 ckpt_id = 'best'
-                states = torch.load(os.path.join(log_path, f"ckpt_{ckpt_id}.pth"),
+                states = torch.load(Path(os.path.join(log_path, f"ckpt_{ckpt_id}.pth")),
                                     map_location=self.device)
             else:
                 ckpt_id = 'last'
-                states = torch.load(os.path.join(log_path, "ckpt.pth"),
+                states = torch.load(Path(os.path.join(log_path, "ckpt.pth")),
                                     map_location=self.device)
         else:
-            states = torch.load(os.path.join(log_path, f"ckpt_{self.config.testing.ckpt_id}.pth"),
+            states = torch.load(Path(os.path.join(log_path, f"ckpt_{self.config.testing.ckpt_id}.pth")),
                                 map_location=self.device)
             ckpt_id = self.config.testing.ckpt_id
         logging.info(f"Loading from: {log_path}/ckpt_{ckpt_id}.pth")
@@ -881,15 +882,15 @@ class Diffusion(object):
         # load auxiliary model
         if config.diffusion.apply_aux_cls:
             if hasattr(config.diffusion, "trained_aux_cls_ckpt_path"):
-                aux_states = torch.load(os.path.join(config.diffusion.trained_aux_cls_ckpt_path,
-                                                     config.diffusion.trained_aux_cls_ckpt_name),
+                aux_states = torch.load(Path(os.path.join(config.diffusion.trained_aux_cls_ckpt_path,
+                                                     config.diffusion.trained_aux_cls_ckpt_name)),
                                         map_location=self.device)
                 self.cond_pred_model.load_state_dict(aux_states['state_dict'], strict=True)
             else:
                 aux_cls_path = log_path
                 if hasattr(config.diffusion, "trained_aux_cls_log_path"):
                     aux_cls_path = config.diffusion.trained_aux_cls_log_path
-                aux_states = torch.load(os.path.join(aux_cls_path, "aux_ckpt.pth"),
+                aux_states = torch.load(Path(os.path.join(aux_cls_path, "aux_ckpt.pth")),
                                         map_location=self.device)
                 self.cond_pred_model.load_state_dict(aux_states[0], strict=True)
             self.cond_pred_model.eval()
@@ -1139,8 +1140,8 @@ class Diffusion(object):
             axs.set_title('Majority Vote Top 1 Accuracy across All Timesteps (Reversed)', fontsize=14)
             axs.set_xlabel('timestep (reversed)', fontsize=12)
             axs.set_ylabel('majority vote accuracy', fontsize=12)
-            fig.savefig(os.path.join(args.im_path,
-                                     'top_1_test_accuracy_all_timesteps.pdf'))
+            fig.savefig(Path(os.path.join(args.im_path,
+                                     'top_1_test_accuracy_all_timesteps.pdf')))
 
         n_metrics = 1
         all_classes = np.arange(config.data.num_classes)
@@ -1156,8 +1157,8 @@ class Diffusion(object):
         axs.set_ylabel('Class Probability', fontsize=8)
         axs.set_ylim([0, 1])
         axs.legend(loc='best')
-        fig.savefig(os.path.join(args.im_path,
-                                 'accuracy_and_CI_width_by_class.pdf'))
+        fig.savefig(Path(os.path.join(args.im_path,
+                                 'accuracy_and_CI_width_by_class.pdf')))
 
         # clear the memory
         plt.close('all')

@@ -18,3 +18,9 @@ results/
 # IntelliJ IDEA
 .idea/
 *.iml
+
+# data folder from Checkpoints
+classification/data/
+
+# Not requirements.txt
+!requirements.txt
