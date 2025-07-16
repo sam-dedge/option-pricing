@@ -32,8 +32,9 @@ class ConditionalModel(nn.Module):
         # encoder for x
         if config.data.dataset == 'toy':
             self.encoder_x = nn.Linear(data_dim, feature_dim)
-        elif config.data.dataset in ['FashionMNIST', 'MNIST', 'CIFAR10', 'CIFAR100', 'IMAGENE100', 'gaussian_mixture']:
+        elif config.data.dataset in ['FashionMNIST', 'MNIST', 'CIFAR10', 'CIFAR100', 'IMAGENE100', 'gaussian_mixture', 'options_classification']:
             if arch == 'linear':
+                print('In model.py --> Model Initialization --\n Current Status --> "linear" NN model.\n Exploration with ResNet later.\n')
                 self.encoder_x = nn.Sequential(
                     nn.Linear(data_dim, hidden_dim),
                     nn.BatchNorm1d(hidden_dim),

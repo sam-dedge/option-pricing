@@ -120,6 +120,17 @@ class Diffusion(object):
                 nn.ReLU(),
                 nn.Linear(16, 3)
             ).to(self.device)
+        elif config.data.dataset == "options_classification":
+            print('In card_classification.py --> Initialization of Cond Pred Model.')
+            self.cond_pred_model = nn.Sequential(
+                nn.Linear(1, 64),
+                nn.ReLU(),
+                nn.Linear(64, 32),
+                nn.ReLU(),
+                nn.Linear(32, 16),
+                nn.ReLU(),
+                nn.Linear(16, 3)
+            ).to(self.device)
         else:
             pass
 
@@ -137,6 +148,9 @@ class Diffusion(object):
         elif self.config.data.dataset == 'gaussian_mixture':
             x = torch.flatten(x, 1)
             #print('In compute_guiding_prediction', x.shape)
+        elif self.config.data.dataset == 'options_classification':
+            x = torch.flatten(x, 1)
+            #print('In compute_guiding_prediction. Options Classification shape', x.shape)
         y_pred = self.cond_pred_model(x)
         return y_pred
 
@@ -153,13 +167,16 @@ class Diffusion(object):
             # Due to above troubleshooting, For GaussMix feature_label_set outputs to minibatches with X and Y values
             if self.config.data.dataset == 'gaussian_mixture':
                 x_batch, y_one_hot_batch, y_logits_batch, y_labels_batch = feature_label_set
+                y_pred_prob = self.compute_guiding_prediction(
+                    x_batch.to(self.device)).softmax(dim=1)
+
+            elif self.config.data.dataset == 'options_classification':
+                x_batch, y_one_hot_batch, y_logits_batch, y_labels_batch = feature_label_set
+                print('In card_classification.py --> Evalute guidance model() --> Getting feature_label_set')
                 #print('y_labels_batch', y_labels_batch.shape, x_batch.shape)
                 y_pred_prob = self.compute_guiding_prediction(
                     x_batch.to(self.device)).softmax(dim=1)
                 #print('y_pred_prob', y_pred_prob.shape)
-
-                #if config.data.dataset == "gaussian_mixture":
-                #    x_batch, y_one_hot_batch, y_logits_batch, y_labels_batch = feature_label_set
 
             else:
                 x_batch, y_labels_batch = feature_label_set
@@ -308,6 +325,8 @@ class Diffusion(object):
                 data_time = 0
                 for i, feature_label_set in enumerate(train_loader):
                     if config.data.dataset == "gaussian_mixture":
+                        x_batch, y_one_hot_batch, y_logits_batch, y_labels_batch = feature_label_set
+                    elif config.data.dataset == "options_classification":
                         x_batch, y_one_hot_batch, y_logits_batch, y_labels_batch = feature_label_set
                     else:
                         x_batch, y_labels_batch = feature_label_set
@@ -495,7 +514,6 @@ class Diffusion(object):
                         with torch.no_grad():
                             y_acc_test = self.evaluate_guidance_model(test_loader)
 
-                            print('BOOOOOOOoYAAAAAAHHHHHHH!!!!')
                             if y_acc_test > max_accuracy:
                                 logging.info("GaussMix!!! Update best accuracy at Epoch {}.".format(epoch))
                                 torch.save(states, Path(os.path.join(self.args.log_path, "ckpt_best.pth")))
@@ -509,13 +527,28 @@ class Diffusion(object):
                                         f"Max accuracy: {max_accuracy:.2f}%"
                                 )
                             )
+                    elif self.config.data.dataset == "options_classification":
+                        model.eval()
+                        self.cond_pred_model.eval()
+                        y_acc_test = 0.
+                        
+                        with torch.no_grad():
+                            y_acc_test = self.evaluate_guidance_model(test_loader)
 
-                        #for feature_test_set in test_loader:
-                            #print('feature_test_set', len(feature_test_set))
-                            
-                        #    x_test, y_one_hot_test, y_logits_test, y_labels_test = feature_test_set
-                            
-                            #print(x_test.shape, y_one_hot_test.shape, y_logits_test.shape, y_labels_test.shape)                            
+                            print('BOOOOOOOoYAAAAAAHHHHHHH!!!!')
+                            if y_acc_test > max_accuracy:
+                                logging.info("Options_Classification!!! Update best accuracy at Epoch {}.".format(epoch))
+                                torch.save(states, Path(os.path.join(self.args.log_path, "ckpt_best.pth")))
+                            max_accuracy = max(max_accuracy, y_acc_test)
+                            if not tb_logger is None:
+                                tb_logger.add_scalar('accuracy', y_acc_test, global_step=step)
+                            logging.info(
+                                (
+                                        f"epoch: {epoch}, step: {step}, " +
+                                        f"Currents accuracy: {y_acc_test}, " +
+                                        f"Max accuracy: {max_accuracy:.2f}%"
+                                )
+                            )
                     else:
                         model.eval()
                         self.cond_pred_model.eval()

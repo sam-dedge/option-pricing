@@ -296,7 +296,9 @@ def main():
             if config.data.dataset in ['FashionMNIST', 'MNIST', 'CIFAR10', 'CIFAR100', 'IMAGENE100']:
                 y_majority_vote_accuracy_all_steps_list = runner.test_image_task()
             elif config.data.dataset == 'gaussian_mixture':
-                y_majority_vote_accuracy_all_steps_list = runner.test_gauss()            
+                y_majority_vote_accuracy_all_steps_list = runner.test_gauss()
+            elif config.data.dataset == 'options_classification':
+                print('\nIn main.py --> runner.test() not present for options_classificaiton\n')
             else:
                 y_majority_vote_accuracy_all_steps_list = runner.test()
             procedure = "Testing"

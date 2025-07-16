@@ -156,6 +156,16 @@ def get_dataset(args, config):
                                       normalize_y=config.data.normalize_y)
         data_object.create_train_test_dataset(train_ratio=config.data.train_ratio)
         train_dataset, test_dataset = data_object.train_dataset, data_object.test_dataset
+    elif config.data.dataset == "options_classification":
+        data_object = data_loader.GaussianMixture(n_samples=config.data.dataset_size,
+                                      seed=args.seed,
+                                      label_min_max=config.data.label_min_max,
+                                      dist_dict=vars(config.data.dist_dict),
+                                      normalize_x=config.data.normalize_x,
+                                      normalize_y=config.data.normalize_y)
+        data_object.create_train_test_dataset(train_ratio=config.data.train_ratio)
+        train_dataset, test_dataset = data_object.train_dataset, data_object.test_dataset
+        print('In utils.py --> options_classification dataset--\nCurrent status gauss data.\nChange later with options data post exploration or CARD_for_stocks.')
     else:
         raise NotImplementedError(
             "Options: toy (classification of two Gaussian), MNIST, FashionMNIST, CIFAR10.")
