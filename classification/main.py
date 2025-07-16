@@ -295,6 +295,8 @@ def main():
         elif args.test:
             if config.data.dataset in ['FashionMNIST', 'MNIST', 'CIFAR10', 'CIFAR100', 'IMAGENE100']:
                 y_majority_vote_accuracy_all_steps_list = runner.test_image_task()
+            elif config.data.dataset == 'gaussian_mixture':
+                y_majority_vote_accuracy_all_steps_list = runner.test_gauss()            
             else:
                 y_majority_vote_accuracy_all_steps_list = runner.test()
             procedure = "Testing"

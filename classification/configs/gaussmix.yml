@@ -7,13 +7,14 @@ data:
     num_classes: 3
     train_ratio: 0.8
     num_workers: 0
-    normalize_x: False
-    normalize_y: False
+    normalize_x: True
+    normalize_y: True
 
 model:
     type: "simple"
     data_dim: 1
     feature_dim: 128
+    hidden_dim: 128
     cat_x: True
     cat_y_pred: True
     arch: linear
@@ -25,32 +26,34 @@ diffusion:
     beta_schedule: linear  # cosine_anneal
     beta_start: 0.0001
     beta_end: 0.02
-    timesteps: 1000
+    timesteps: 300
     vis_step: 100
     num_figs: 10
+    apply_aux_cls: False # Present in other configs with pretrainied checkpoints provided. Changed to False to circumvent.
+    include_guidance: False  # concat y_t with aux pred as eps_theta input # Aux_model not used so set False
 
 training:
-    batch_size: 256
-    n_epochs: 5000
+    batch_size: 96
+    n_epochs: 1200
     add_t0_loss: False
     n_ce_epochs_warmup: 10
     n_ce_epochs_interval: 100
-    n_sanity_check_epochs_freq: 500
-    n_iters: 100000
+    n_sanity_check_epochs_freq: 250
+    n_iters: 500000
     snapshot_freq: 1000000000
     logging_freq: 320
-    validation_freq: 16000
+    validation_freq: 1600
     image_folder: 'training_image_samples'
 
 sampling:
-    batch_size: 256
-    sampling_size: 1000
+    batch_size: 96
+    sampling_size: 200
     last_only: True
     image_folder: 'sampling_image_samples'
 
 testing:
-    batch_size: 256
-    sampling_size: 1000
+    batch_size: 96
+    sampling_size: 200
     last_only: True
     plot_freq: 200
     image_folder: 'testing_image_samples'

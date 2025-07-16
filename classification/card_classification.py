@@ -110,6 +110,16 @@ class Diffusion(object):
             else:
                 self.cond_pred_model = AuxCls(config).to(self.device)
             self.aux_cost_function = nn.CrossEntropyLoss()
+        elif config.data.dataset == "gaussian_mixture":
+            self.cond_pred_model = nn.Sequential(
+                nn.Linear(1, 64),
+                nn.ReLU(),
+                nn.Linear(64, 32),
+                nn.ReLU(),
+                nn.Linear(32, 16),
+                nn.ReLU(),
+                nn.Linear(16, 3)
+            ).to(self.device)
         else:
             pass
 
@@ -124,6 +134,9 @@ class Diffusion(object):
         if self.config.model.arch == "simple" or \
                 (self.config.model.arch == "linear" and self.config.data.dataset == "MNIST"):
             x = torch.flatten(x, 1)
+        elif self.config.data.dataset == 'gaussian_mixture':
+            x = torch.flatten(x, 1)
+            #print('In compute_guiding_prediction', x.shape)
         y_pred = self.cond_pred_model(x)
         return y_pred
 
@@ -135,12 +148,28 @@ class Diffusion(object):
         for step, feature_label_set in tqdm(enumerate(dataset_loader)):
             # logging.info("\nEvaluating test Minibatch {}...\n".format(step))
             # minibatch_start = time.time()
-            x_batch, y_labels_batch = feature_label_set
-            y_labels_batch = y_labels_batch.reshape(-1, 1)
-            y_pred_prob = self.compute_guiding_prediction(
-                x_batch.to(self.device)).softmax(dim=1)  # (batch_size, n_classes)
+            #print('feature_label_set', type(feature_label_set), len(feature_label_set), feature_label_set[0].shape, feature_label_set[3].shape)
+            #print('Remainaing feature_label_set', feature_label_set[1], feature_label_set[2])
+            # Due to above troubleshooting, For GaussMix feature_label_set outputs to minibatches with X and Y values
+            if self.config.data.dataset == 'gaussian_mixture':
+                x_batch, y_one_hot_batch, y_logits_batch, y_labels_batch = feature_label_set
+                #print('y_labels_batch', y_labels_batch.shape, x_batch.shape)
+                y_pred_prob = self.compute_guiding_prediction(
+                    x_batch.to(self.device)).softmax(dim=1)
+                #print('y_pred_prob', y_pred_prob.shape)
+
+                #if config.data.dataset == "gaussian_mixture":
+                #    x_batch, y_one_hot_batch, y_logits_batch, y_labels_batch = feature_label_set
+
+            else:
+                x_batch, y_labels_batch = feature_label_set
+                y_labels_batch = y_labels_batch.reshape(-1, 1)    
+                y_pred_prob = self.compute_guiding_prediction(
+                    x_batch.to(self.device)).softmax(dim=1)  # (batch_size, n_classes)
+            #print('y_labels_batch No reshape', y_labels_batch.shape, x_batch.shape)
             y_pred_label = torch.argmax(y_pred_prob, 1, keepdim=True).cpu().detach().numpy()  # (batch_size, 1)
             y_labels_batch = y_labels_batch.cpu().detach().numpy()
+            #print(y_labels_batch.shape, y_pred_label.shape, y_pred_prob.shape)
             y_acc = y_pred_label == y_labels_batch  # (batch_size, 1)
             if len(y_acc_list) == 0:
                 y_acc_list = y_acc
@@ -305,7 +334,10 @@ class Diffusion(object):
                     # noise estimation loss
                     x_batch = x_batch.to(self.device)
                     # y_0_batch = y_logits_batch.to(self.device)
-                    y_0_hat_batch = self.compute_guiding_prediction(x_unflat_batch).softmax(dim=1)
+                    if self.config.data.dataset == 'gaussian_mixture':
+                        y_0_hat_batch = self.compute_guiding_prediction(x_batch).softmax(dim=1)
+                    else:
+                        y_0_hat_batch = self.compute_guiding_prediction(x_unflat_batch).softmax(dim=1)
                     y_T_mean = y_0_hat_batch
                     if config.diffusion.noise_prior:  # apply 0 instead of f_phi(x) as prior mean
                         y_T_mean = torch.zeros(y_0_hat_batch.shape).to(y_0_hat_batch.device)
@@ -455,6 +487,35 @@ class Diffusion(object):
                             fig.savefig(
                                 Path(os.path.join(args.im_path, 'samples_T{}_{}.pdf'.format(self.num_timesteps, step))))
                             plt.close()
+                    elif self.config.data.dataset == "gaussian_mixture":
+                        model.eval()
+                        self.cond_pred_model.eval()
+                        y_acc_test = 0.
+                        
+                        with torch.no_grad():
+                            y_acc_test = self.evaluate_guidance_model(test_loader)
+
+                            print('BOOOOOOOoYAAAAAAHHHHHHH!!!!')
+                            if y_acc_test > max_accuracy:
+                                logging.info("GaussMix!!! Update best accuracy at Epoch {}.".format(epoch))
+                                torch.save(states, Path(os.path.join(self.args.log_path, "ckpt_best.pth")))
+                            max_accuracy = max(max_accuracy, y_acc_test)
+                            if not tb_logger is None:
+                                tb_logger.add_scalar('accuracy', y_acc_test, global_step=step)
+                            logging.info(
+                                (
+                                        f"epoch: {epoch}, step: {step}, " +
+                                        f"Currents accuracy: {y_acc_test}, " +
+                                        f"Max accuracy: {max_accuracy:.2f}%"
+                                )
+                            )
+
+                        #for feature_test_set in test_loader:
+                            #print('feature_test_set', len(feature_test_set))
+                            
+                        #    x_test, y_one_hot_test, y_logits_test, y_labels_test = feature_test_set
+                            
+                            #print(x_test.shape, y_one_hot_test.shape, y_logits_test.shape, y_labels_test.shape)                            
                     else:
                         model.eval()
                         self.cond_pred_model.eval()
@@ -522,6 +583,32 @@ class Diffusion(object):
                 logging.info("After joint-training, guidance classifier accuracy on the test set is {:.8f}.".format(
                     y_acc_aux_model))
 
+    def test_gauss(self):
+        _, __, test_dataset = get_dataset(self.args, self.config)
+
+        test_loader = data.DataLoader(
+            test_dataset,
+            batch_size=self.config.testing.batch_size,
+            shuffle=False,
+            num_workers=self.config.data.num_workers,
+        )
+
+        test_acc = self.evaluate_guidance_model(test_loader)
+        logging.info("\In runner.gauss_test()\nPost Training??\nThe guidance classifier accuracy on the test set is {:.8f}.\n\n".format(
+            test_acc))
+        
+        return test_acc
+
+
+
+
+
+
+
+
+############ Below Code USED FOR EVALUALITING IMAGE CLASSIFICATION TASKS  ############
+# Skip it. Unneccsary for Options purposes.
+# Can be deleted.
     def test_image_task(self):
         """
         Evaluate model performance on image classification tasks.

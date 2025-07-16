@@ -1,5 +1,6 @@
 import random
 import math
+import data_loader
 import numpy as np
 import argparse
 import torch
@@ -147,7 +148,7 @@ def get_dataset(args, config):
         test_dataset = torchvision.datasets.CIFAR100(root=config.data.dataroot, train=False,
                                                      download=True, transform=transform)
     elif config.data.dataset == "gaussian_mixture":
-        data_object = GaussianMixture(n_samples=config.data.dataset_size,
+        data_object = data_loader.GaussianMixture(n_samples=config.data.dataset_size,
                                       seed=args.seed,
                                       label_min_max=config.data.label_min_max,
                                       dist_dict=vars(config.data.dist_dict),
